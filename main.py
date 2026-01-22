@@ -1,7 +1,9 @@
+"""
+ПРОСТОЙ РАБОЧИЙ БОТ ДЛЯ БЕСПЛАТНОГО ТАРИФА BOTHOST
+"""
 import logging
 import sys
-import os
-from telegram import Update
+from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
 import config
 
@@ -13,107 +15,172 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Проверяем наличие токена
-if not config.BOT_TOKEN or config.BOT_TOKEN == "ВАШ_ТОКЕН_БОТА":
-    logger.error("❌ ТОКЕН БОТА НЕ НАЙДЕН!")
-    logger.error("Добавьте BOT_TOKEN в переменные окружения на Bothost или в config.py")
+# Проверяем токен
+if config.BOT_TOKEN.startswith("ВАШ_ТОКЕН"):
+    logger.error("❌ ЗАМЕНИТЕ ТОКЕН В config.py!")
+    logger.error("1. Получите токен у @BotFather")
+    logger.error("2. Вставьте его в config.py в BOT_TOKEN")
     sys.exit(1)
 
-# Команда /start
+# ========== КОМАНДЫ БОТА ==========
+
+# /start - главная команда
 async def start(update: Update, context: CallbackContext):
     user = update.effective_user
-    logger.info(f"Пользователь {user.id} запустил бота")
     
+    # Приветственное сообщение
     await update.message.reply_html(
-        f"🎉 <b>Бот работает!</b>\n"
-        f"Привет {user.mention_html()}!\n\n"
-        f"<i>Бот успешно запущен на Bothost!</i>\n\n"
-        f"Скоро добавлю:\n"
-        f"• Прогресс-бар 📊\n"
-        f"• Inline-кнопки 🚗\n"
-        f"• Учёт услуг 💰\n\n"
-        f"<code>Статус: ✅ Активен</code>"
+        f"🎉 <b>Добро пожаловать, {user.first_name}!</b>\n\n"
+        f"Я бот для учёта услуг на работе.\n\n"
+        f"<b>Доступные команды:</b>\n"
+        f"/start - это сообщение\n"
+        f"/menu - главное меню\n"
+        f"/help - помощь\n\n"
+        f"<i>Бот работает на бесплатном тарифе Bothost</i> ✅"
     )
+    
+    # Логируем
+    logger.info(f"Пользователь {user.id} ({user.first_name}) запустил бота")
 
-# Обработка текстовых сообщений
-async def handle_message(update: Update, context: CallbackContext):
-    text = update.message.text
-    user = update.effective_user
-    logger.info(f"Сообщение от {user.id}: {text}")
+# /menu - главное меню с кнопками
+async def menu(update: Update, context: CallbackContext):
+    # Создаём клавиатуру
+    keyboard = [
+        ["🚗 Добавить машину"],
+        ["📊 Прогресс смены", "📜 История"],
+        ["⚙️ Настройки", "❓ Помощь"]
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     
     await update.message.reply_text(
-        f"✅ Бот получил: '{text}'\n\n"
-        f"ID вашего сообщения: {update.message.message_id}\n"
-        f"Ваш ID: {user.id}\n\n"
-        f"<i>Функции бота скоро будут добавлены</i>",
+        "📱 <b>Главное меню</b>\n\n"
+        "Выберите действие:",
+        reply_markup=reply_markup,
         parse_mode='HTML'
     )
 
-# Обработка ошибок
-async def error_handler(update: Update, context: CallbackContext):
-    logger.error(f"Ошибка: {context.error}", exc_info=context.error)
+# Обработка кнопок
+async def handle_buttons(update: Update, context: CallbackContext):
+    text = update.message.text
+    
+    if text == "🚗 Добавить машину":
+        await update.message.reply_text(
+            "Введите номер машины (например, <code>А123БВ777</code>):",
+            parse_mode='HTML'
+        )
+    
+    elif text == "📊 Прогресс смены":
+        await update.message.reply_text(
+            "📊 <b>Прогресс смены</b>\n\n"
+            "Смена ещё не начата.\n"
+            "Начните смену через меню настроек.",
+            parse_mode='HTML'
+        )
+    
+    elif text == "📜 История":
+        await update.message.reply_text(
+            "История смен будет здесь.\n"
+            "Функция в разработке... 🛠️"
+        )
+    
+    elif text == "⚙️ Настройки":
+        await update.message.reply_text(
+            "⚙️ <b>Настройки</b>\n\n"
+            "1. Установить цель на смену\n"
+            "2. Включить уведомления\n"
+            "3. Сменить имя\n\n"
+            "Функции в разработке... 🛠️",
+            parse_mode='HTML'
+        )
+    
+    elif text == "❓ Помощь":
+        await update.message.reply_text(
+            "🆘 <b>Помощь</b>\n\n"
+            "Это бот для учёта услуг.\n\n"
+            "Как работать:\n"
+            "1. Начните смену (/menu → Настройки)\n"
+            "2. Добавляйте машины\n"
+            "3. Выбирайте услуги\n"
+            "4. Закрывайте смену\n\n"
+            "Связь: @ваш_username",
+            parse_mode='HTML'
+        )
 
-# Главная функция для Bothost (вебхуки)
-async def setup_application():
-    """Настройка приложения для Bothost"""
-    logger.info("Настройка приложения...")
+# Обработка номера машины
+async def handle_car_number(update: Update, context: CallbackContext):
+    car_number = update.message.text.upper().strip()
     
-    # Создаём приложение
-    application = Application.builder().token(config.BOT_TOKEN).build()
+    # Простая проверка
+    if len(car_number) < 6:
+        await update.message.reply_text("❌ Номер слишком короткий!")
+        return
     
-    # Регистрируем обработчики
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    await update.message.reply_text(
+        f"🚗 Машина: <b>{car_number}</b>\n\n"
+        f"Выберите услуги (скоро появятся inline-кнопки):\n\n"
+        f"1. Проверка - 150₽\n"
+        f"2. Заправка - 300₽\n"
+        f"3. Подкачка - 80₽\n\n"
+        f"<i>Inline-кнопки в разработке...</i>",
+        parse_mode='HTML'
+    )
     
-    # Обработчик ошибок
-    application.add_error_handler(error_handler)
-    
-    return application
+    # Сохраняем номер в контексте
+    context.user_data['last_car'] = car_number
 
-# Для запуска на Bothost (вебхуки)
-app = None
-try:
-    logger.info("Инициализация бота...")
-    app = asyncio.run(setup_application())
-    logger.info("✅ Бот инициализирован успешно!")
-except Exception as e:
-    logger.error(f"❌ Ошибка инициализации: {e}")
-    sys.exit(1)
+# /help - помощь
+async def help_command(update: Update, context: CallbackContext):
+    await update.message.reply_text(
+        "ℹ️ <b>Информация о боте</b>\n\n"
+        "Версия: 1.0 (базовая)\n"
+        "Статус: В разработке\n"
+        "Хостинг: Bothost (бесплатный тариф)\n\n"
+        "Следующие обновления:\n"
+        "✅ Inline-кнопки с услугами\n"
+        "✅ Прогресс-бар в закреплённых\n"
+        "✅ База данных\n\n"
+        "Ожидайте обновлений!",
+        parse_mode='HTML'
+    )
 
-# Функция для обработки вебхуков (нужна для Bothost)
-async def handle_webhook(request):
-    """Обработчик вебхуков для Bothost"""
+# ========== ЗАПУСК БОТА ==========
+
+def main():
+    """Главная функция запуска бота"""
+    logger.info("=" * 50)
+    logger.info("ЗАПУСК БОТА ДЛЯ БЕСПЛАТНОГО ТАРИФА")
+    logger.info("=" * 50)
+    
     try:
-        json_data = await request.json()
-        update = Update.de_json(json_data, app.bot)
-        await app.process_update(update)
-        return web.Response(text="OK", status=200)
+        # Создаём приложение
+        application = Application.builder().token(config.BOT_TOKEN).build()
+        
+        # Регистрируем команды
+        application.add_handler(CommandHandler("start", start))
+        application.add_handler(CommandHandler("menu", menu))
+        application.add_handler(CommandHandler("help", help_command))
+        
+        # Обработчики сообщений
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_buttons))
+        
+        # Обработчик ошибок
+        async def error_handler(update: Update, context: CallbackContext):
+            logger.error(f"Ошибка: {context.error}")
+        
+        application.add_error_handler(error_handler)
+        
+        # Запускаем бота
+        logger.info(f"Бот запускается с токеном: {config.BOT_TOKEN[:10]}...")
+        logger.info("Используется polling (подходит для бесплатного тарифа)")
+        
+        application.run_polling(
+            drop_pending_updates=True,
+            allowed_updates=Update.ALL_TYPES
+        )
+        
     except Exception as e:
-        logger.error(f"Ошибка обработки вебхука: {e}")
-        return web.Response(text="Error", status=500)
+        logger.error(f"ФАТАЛЬНАЯ ОШИБКА: {e}")
+        sys.exit(1)
 
-# Для локального тестирования (polling)
 if __name__ == '__main__':
-    import asyncio
-    from aiohttp import web
-    
-    async def main():
-        # Получаем порт из переменной окружения (для Bothost)
-        port = int(os.getenv('PORT', 8080))
-        
-        # Создаём веб-приложение
-        web_app = web.Application()
-        web_app.router.add_post('/webhook', handle_webhook)
-        
-        # Запускаем веб-сервер
-        runner = web.AppRunner(web_app)
-        await runner.setup()
-        site = web.TCPSite(runner, '0.0.0.0', port)
-        
-        logger.info(f"🚀 Веб-сервер запущен на порту {port}")
-        await site.start()
-        
-        # Бесконечный цикл
-        await asyncio.Event().wait()
-    
-    asyncio.run(main())
+    main()
