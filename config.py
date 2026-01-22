@@ -1,8 +1,14 @@
-import os
-from dotenv import load_dotenv
+"""
+Конфигурация для бесплатного тарифа Bothost.
+Так как переменные окружения недоступны, храним всё здесь.
+"""
 
-load_dotenv()
+# ВАШ ТОКЕН БОТА (замените на реальный!)
+BOT_TOKEN = "8251108200:AAF2wTId8BpIteJkJCf0WjaSlk-jBxCfrLo"
 
-# Bothost автоматически подставляет эти переменные
-BOT_TOKEN = os.getenv('BOT_TOKEN')
-DATABASE_URL = os.getenv('DATABASE_URL')
+# Настройки базы данных (Bothost автоматически создаёт)
+# Bothost сам подключает базу, нам не нужно указывать URL
+DATABASE_URL = None  # Будем получать из подключения
+
+# Настройки бота
+ADMIN_IDS = []  # ID администраторов (если нужны)
